@@ -1,0 +1,32 @@
+/*
+ * ATTENTION: The "eval" devtool has been used (maybe by default in mode: "development").
+ * This devtool is neither made for production nor for readable output files.
+ * It uses "eval()" calls to create a separate source file in the browser devtools.
+ * If you are trying to read the output file, select a different devtool (https://webpack.js.org/configuration/devtool/)
+ * or disable the default devtool with "devtool: false".
+ * If you are looking for production-ready output files, see mode: "production" (https://webpack.js.org/configuration/mode/).
+ */
+/******/ (() => { // webpackBootstrap
+/******/ 	var __webpack_modules__ = ({
+
+/***/ "./background.js":
+/*!***********************!*\
+  !*** ./background.js ***!
+  \***********************/
+/***/ (() => {
+
+eval("{// State management\r\nlet state = {\r\n    connected: false,\r\n    language: 'en',\r\n    volume: 100,\r\n    peer: null,\r\n    signalingSocket: null\r\n};\r\n\r\n// WebSocket connection to signaling server\r\nfunction connectToSignalingServer() {\r\n    const ws = new WebSocket('ws://localhost:8080');\r\n    \r\n    ws.onopen = () => {\r\n        console.log('Connected to signaling server');\r\n        ws.send(JSON.stringify({\r\n            type: 'register',\r\n            clientType: 'viewer'\r\n        }));\r\n    };\r\n\r\n    ws.onmessage = async (event) => {\r\n        const data = JSON.parse(event.data);\r\n        handleSignalingMessage(data);\r\n    };\r\n\r\n    ws.onclose = () => {\r\n        console.log('Disconnected from signaling server');\r\n        state.signalingSocket = null;\r\n        state.connected = false;\r\n    };\r\n\r\n    state.signalingSocket = ws;\r\n}\r\n\r\n// Handle incoming signaling messages\r\nasync function handleSignalingMessage(data) {\r\n    switch (data.type) {\r\n        case 'offer':\r\n            if (state.peer) {\r\n                await state.peer.setRemoteDescription(new RTCSessionDescription(data.offer));\r\n                const answer = await state.peer.createAnswer();\r\n                await state.peer.setLocalDescription(answer);\r\n                \r\n                state.signalingSocket.send(JSON.stringify({\r\n                    type: 'answer',\r\n                    answer: answer\r\n                }));\r\n            }\r\n            break;\r\n            \r\n        case 'ice-candidate':\r\n            if (state.peer) {\r\n                await state.peer.addIceCandidate(new RTCIceCandidate(data.candidate));\r\n            }\r\n            break;\r\n    }\r\n}\r\n\r\n// Initialize WebRTC peer connection\r\nfunction initializePeerConnection() {\r\n    const config = {\r\n        iceServers: [\r\n            { urls: 'stun:stun.l.google.com:19302' }\r\n        ]\r\n    };\r\n\r\n    const peer = new RTCPeerConnection(config);\r\n    \r\n    peer.onicecandidate = (event) => {\r\n        if (event.candidate && state.signalingSocket) {\r\n            state.signalingSocket.send(JSON.stringify({\r\n                type: 'ice-candidate',\r\n                candidate: event.candidate\r\n            }));\r\n        }\r\n    };\r\n\r\n    peer.ondatachannel = (event) => {\r\n        const channel = event.channel;\r\n        channel.onmessage = (event) => {\r\n            const data = JSON.parse(event.data);\r\n            if (data.type === 'audio') {\r\n                // Forward encrypted audio data to content script\r\n                chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {\r\n                    if (tabs[0]) {\r\n                        chrome.tabs.sendMessage(tabs[0].id, {\r\n                            type: 'audioData',\r\n                            data: data.payload\r\n                        });\r\n                    }\r\n                });\r\n            }\r\n        };\r\n    };\r\n\r\n    state.peer = peer;\r\n}\r\n\r\n// Message handling from popup and content scripts\r\nchrome.runtime.onMessage.addListener((message, sender, sendResponse) => {\r\n    switch (message.type) {\r\n        case 'connect':\r\n            connectToSignalingServer();\r\n            initializePeerConnection();\r\n            sendResponse({ success: true });\r\n            break;\r\n            \r\n        case 'disconnect':\r\n            if (state.signalingSocket) {\r\n                state.signalingSocket.close();\r\n            }\r\n            if (state.peer) {\r\n                state.peer.close();\r\n                state.peer = null;\r\n            }\r\n            state.connected = false;\r\n            sendResponse({ success: true });\r\n            break;\r\n            \r\n        case 'setLanguage':\r\n            state.language = message.language;\r\n            // Notify content script of language change\r\n            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {\r\n                if (tabs[0]) {\r\n                    chrome.tabs.sendMessage(tabs[0].id, {\r\n                        type: 'languageChange',\r\n                        language: message.language\r\n                    });\r\n                }\r\n            });\r\n            break;\r\n            \r\n        case 'setVolume':\r\n            state.volume = message.volume;\r\n            // Notify content script of volume change\r\n            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {\r\n                if (tabs[0]) {\r\n                    chrome.tabs.sendMessage(tabs[0].id, {\r\n                        type: 'volumeChange',\r\n                        volume: message.volume\r\n                    });\r\n                }\r\n            });\r\n            break;\r\n            \r\n        case 'getState':\r\n            sendResponse({\r\n                connected: state.connected,\r\n                language: state.language,\r\n                volume: state.volume\r\n            });\r\n            break;\r\n    }\r\n    \r\n    return true; // Keep the message channel open for async responses\r\n});\r\n\n\n//# sourceURL=webpack://whisperplay-extension/./background.js?\n}");
+
+/***/ })
+
+/******/ 	});
+/************************************************************************/
+/******/ 	
+/******/ 	// startup
+/******/ 	// Load entry module and return exports
+/******/ 	// This entry module can't be inlined because the eval devtool is used.
+/******/ 	var __webpack_exports__ = {};
+/******/ 	__webpack_modules__["./background.js"]();
+/******/ 	
+/******/ })()
+;

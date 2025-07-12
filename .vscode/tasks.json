@@ -1,0 +1,38 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build OBS Plugin",
+      "type": "shell",
+      "command": "cmake --build build",
+      "options": {
+        "cwd": "${workspaceFolder}/obs-plugin"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$gcc", "$msCompile"]
+    },
+    {
+      "label": "Start Signaling Server",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/server"
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Build Extension",
+      "type": "shell",
+      "command": "npm run build",
+      "options": {
+        "cwd": "${workspaceFolder}/extension"
+      },
+      "group": "build",
+      "problemMatcher": ["$tsc"]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Generate Extension Icons",
+            "type": "shell",
+            "command": "convert -size 128x128 xc:white -fill '#2196f3' -draw \"circle 64,64 64,0\" -draw \"text 50,74 'WP'\" icon128.png && convert icon128.png -resize 48x48 icon48.png && convert icon128.png -resize 16x16 icon16.png",
+            "options": {
+                "cwd": "${workspaceFolder}/extension/icons"
+            }
+        }
+    ]
+}
