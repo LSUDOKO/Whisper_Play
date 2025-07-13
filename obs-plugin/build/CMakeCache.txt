@@ -185,8 +185,20 @@ CMAKE_STATIC_LINKER_FLAGS_RELWITHDEBINFO:STRING=
 // Studio IDE projects all commands are done without /nologo.
 CMAKE_VERBOSE_MAKEFILE:BOOL=FALSE
 
+//Path to a library.
+LIBOBS_LIB:FILEPATH=LIBOBS_LIB-NOTFOUND
+
 //The directory containing a CMake configuration file for LibObs.
 LibObs_DIR:PATH=LibObs_DIR-NOTFOUND
+
+//No help, variable specified on the command line.
+OBS_SDK_PATH:UNINITIALIZED=C:\Users\Arpit\OneDrive\Desktop\WhisperPlay\obs-plugin\\deps\obs-studio\build\rundir\Release
+
+//Arguments to supply to pkg-config
+PKG_CONFIG_ARGN:STRING=
+
+//pkg-config executable
+PKG_CONFIG_EXECUTABLE:FILEPATH=PKG_CONFIG_EXECUTABLE-NOTFOUND
 
 //Value Computed by CMake
 obs-whisperplay_BINARY_DIR:STATIC=C:/Users/Arpit/OneDrive/Desktop/WhisperPlay/obs-plugin/build
@@ -330,4 +342,8 @@ CMAKE_STATIC_LINKER_FLAGS_RELEASE-ADVANCED:INTERNAL=1
 CMAKE_STATIC_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_VERBOSE_MAKEFILE
 CMAKE_VERBOSE_MAKEFILE-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: PKG_CONFIG_ARGN
+PKG_CONFIG_ARGN-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: PKG_CONFIG_EXECUTABLE
+PKG_CONFIG_EXECUTABLE-ADVANCED:INTERNAL=1
 
