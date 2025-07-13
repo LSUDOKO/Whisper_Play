@@ -1,36 +1,68 @@
+// Import WebRTC adapter
+import adapter from 'webrtc-adapter';
+
 // State management
 let state = {
     connected: false,
     language: 'en',
     volume: 100,
     peer: null,
-    signalingSocket: null
+    signalingSocket: null,
+    retryCount: 0,
+    maxRetries: 5,
+    retryTimeout: 2000
 };
 
-// WebSocket connection to signaling server
-function connectToSignalingServer() {
-    const ws = new WebSocket('ws://localhost:8080');
-    
-    ws.onopen = () => {
-        console.log('Connected to signaling server');
-        ws.send(JSON.stringify({
-            type: 'register',
-            clientType: 'viewer'
-        }));
-    };
-
-    ws.onmessage = async (event) => {
-        const data = JSON.parse(event.data);
-        handleSignalingMessage(data);
-    };
-
-    ws.onclose = () => {
-        console.log('Disconnected from signaling server');
-        state.signalingSocket = null;
+// WebSocket connection to signaling server with retry mechanism
+async function connectToSignalingServer() {
+    if (state.retryCount >= state.maxRetries) {
+        console.error('Max retries reached for signaling server connection');
         state.connected = false;
-    };
+        return;
+    }
 
-    state.signalingSocket = ws;
+    try {
+        const ws = new WebSocket('ws://localhost:8080');
+        
+        ws.onopen = () => {
+            console.log('Connected to signaling server');
+            state.retryCount = 0;
+            state.connected = true;
+            ws.send(JSON.stringify({
+                type: 'register',
+                clientType: 'viewer'
+            }));
+        };
+
+        ws.onmessage = async (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                await handleSignalingMessage(data);
+            } catch (error) {
+                console.error('Error handling signaling message:', error);
+            }
+        };
+
+        ws.onclose = () => {
+            console.log('Disconnected from signaling server');
+            state.signalingSocket = null;
+            state.connected = false;
+            
+            // Attempt to reconnect
+            state.retryCount++;
+            setTimeout(() => connectToSignalingServer(), state.retryTimeout);
+        };
+
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+        state.signalingSocket = ws;
+    } catch (error) {
+        console.error('Error connecting to signaling server:', error);
+        state.retryCount++;
+        setTimeout(() => connectToSignalingServer(), state.retryTimeout);
+    }
 }
 
 // Handle incoming signaling messages
@@ -58,100 +90,162 @@ async function handleSignalingMessage(data) {
 }
 
 // Initialize WebRTC peer connection
-function initializePeerConnection() {
-    const config = {
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' }
-        ]
-    };
+async function initializePeerConnection() {
+    try {
+        const config = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ],
+            iceCandidatePoolSize: 10
+        };
 
-    const peer = new RTCPeerConnection(config);
-    
-    peer.onicecandidate = (event) => {
-        if (event.candidate && state.signalingSocket) {
-            state.signalingSocket.send(JSON.stringify({
-                type: 'ice-candidate',
-                candidate: event.candidate
-            }));
+        if (state.peer) {
+            await state.peer.close();
         }
-    };
 
-    peer.ondatachannel = (event) => {
-        const channel = event.channel;
-        channel.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'audio') {
-                // Forward encrypted audio data to content script
-                chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                    if (tabs[0]) {
-                        chrome.tabs.sendMessage(tabs[0].id, {
-                            type: 'audioData',
-                            data: data.payload
-                        });
-                    }
-                });
+        state.peer = new RTCPeerConnection(config);
+        console.log('Created RTCPeerConnection');
+        
+        state.peer.onicecandidate = (event) => {
+            if (event.candidate && state.signalingSocket && state.signalingSocket.readyState === WebSocket.OPEN) {
+                state.signalingSocket.send(JSON.stringify({
+                    type: 'ice-candidate',
+                    candidate: event.candidate
+                }));
             }
         };
-    };
 
-    state.peer = peer;
+        state.peer.onconnectionstatechange = () => {
+            console.log('Connection state:', state.peer.connectionState);
+            if (state.peer.connectionState === 'connected') {
+                state.connected = true;
+            } else if (state.peer.connectionState === 'failed') {
+                state.connected = false;
+                initializePeerConnection(); // Retry connection
+            }
+        };
+
+        state.peer.ondatachannel = (event) => {
+            const channel = event.channel;
+            console.log('Received data channel:', channel.label);
+            
+            channel.onopen = () => {
+                console.log('Data channel opened');
+            };
+            
+            channel.onclose = () => {
+                console.log('Data channel closed');
+            };
+            
+            channel.onerror = (error) => {
+                console.error('Data channel error:', error);
+            };
+            
+            channel.onmessage = async (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'audio') {
+                        // Forward encrypted audio data to content script
+                        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                        if (tabs[0]) {
+                            await chrome.tabs.sendMessage(tabs[0].id, {
+                                type: 'audioData',
+                                data: data.payload
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error handling data channel message:', error);
+                }
+            };
+        };
+
+        return true;
+    } catch (error) {
+        console.error('Error initializing peer connection:', error);
+        return false;
+    }
 }
 
 // Message handling from popup and content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    switch (message.type) {
-        case 'connect':
-            connectToSignalingServer();
-            initializePeerConnection();
-            sendResponse({ success: true });
-            break;
-            
-        case 'disconnect':
-            if (state.signalingSocket) {
-                state.signalingSocket.close();
-            }
-            if (state.peer) {
-                state.peer.close();
-                state.peer = null;
-            }
-            state.connected = false;
-            sendResponse({ success: true });
-            break;
-            
-        case 'setLanguage':
-            state.language = message.language;
-            // Notify content script of language change
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                if (tabs[0]) {
-                    chrome.tabs.sendMessage(tabs[0].id, {
-                        type: 'languageChange',
-                        language: message.language
+    (async () => {
+        try {
+            switch (message.type) {
+                case 'connect':
+                    await connectToSignalingServer();
+                    const success = await initializePeerConnection();
+                    sendResponse({ success });
+                    break;
+                
+                case 'disconnect':
+                    try {
+                        if (state.signalingSocket) {
+                            state.signalingSocket.close();
+                        }
+                        if (state.peer) {
+                            state.peer.close();
+                            state.peer = null;
+                        }
+                        state.connected = false;
+                        sendResponse({ success: true });
+                    } catch (error) {
+                        console.error('Error during disconnect:', error);
+                        sendResponse({ success: false, error: error.message });
+                    }
+                    break;
+                
+                case 'setLanguage':
+                    try {
+                        state.language = message.language;
+                        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                        if (tabs[0]) {
+                            await chrome.tabs.sendMessage(tabs[0].id, {
+                                type: 'languageChange',
+                                language: message.language
+                            });
+                        }
+                        sendResponse({ success: true });
+                    } catch (error) {
+                        console.error('Error setting language:', error);
+                        sendResponse({ success: false, error: error.message });
+                    }
+                    break;
+                
+                case 'setVolume':
+                    try {
+                        state.volume = message.volume;
+                        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                        if (tabs[0]) {
+                            await chrome.tabs.sendMessage(tabs[0].id, {
+                                type: 'volumeChange',
+                                volume: message.volume
+                            });
+                        }
+                        sendResponse({ success: true });
+                    } catch (error) {
+                        console.error('Error setting volume:', error);
+                        sendResponse({ success: false, error: error.message });
+                    }
+                    break;
+                
+                case 'getState':
+                    sendResponse({
+                        success: true,
+                        connected: state.connected,
+                        language: state.language,
+                        volume: state.volume
                     });
-                }
-            });
-            break;
-            
-        case 'setVolume':
-            state.volume = message.volume;
-            // Notify content script of volume change
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                if (tabs[0]) {
-                    chrome.tabs.sendMessage(tabs[0].id, {
-                        type: 'volumeChange',
-                        volume: message.volume
-                    });
-                }
-            });
-            break;
-            
-        case 'getState':
-            sendResponse({
-                connected: state.connected,
-                language: state.language,
-                volume: state.volume
-            });
-            break;
-    }
-    
+                    break;
+                
+                default:
+                    sendResponse({ success: false, error: 'Unknown message type' });
+            }
+        } catch (error) {
+            console.error('Error handling message:', error);
+            sendResponse({ success: false, error: error.message });
+        }
+    })();
     return true; // Keep the message channel open for async responses
 });
