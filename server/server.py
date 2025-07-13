@@ -1,32 +1,41 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 import io
+import os
 import tempfile
 import whisper
-from google.cloud import translate_v2 as translate
-from gtts import gTTS
-
-# Initialize Flask app and enable CORS
-app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+import deepl
+from elevenlabs import generate, stream, set_api_key
 
 # --- Initialization ---
+
+# Load API keys from environment variables
+DEEPL_API_KEY = os.environ.get("DEEPL_API_KEY")
+ELEVEN_API_KEY = os.environ.get("ELEVEN_API_KEY")
+
+if not DEEPL_API_KEY:
+    print("ERROR: DEEPL_API_KEY environment variable not set.")
+if not ELEVEN_API_KEY:
+    print("ERROR: ELEVEN_API_KEY environment variable not set.")
+else:
+    set_api_key(ELEVEN_API_KEY)
+
+# Initialize DeepL Translator
+try:
+    translator = deepl.Translator(DEEPL_API_KEY)
+    print("DeepL Translator initialized.")
+except Exception as e:
+    translator = None
+    print(f"Error initializing DeepL: {e}")
+
+# Load Whisper Model
 print("Loading Whisper model (tiny)... This may take a moment.")
 model = whisper.load_model("tiny")
 print("Whisper model loaded.")
 
-print("Initializing Google Translate client...")
-try:
-    translate_client = translate.Client()
-    print("Google Translate client initialized.")
-except Exception as e:
-    print("*****************************************************************")
-    print("ERROR: Failed to initialize Google Translate client.")
-    print("Please ensure you have authenticated with Google Cloud by setting")
-    print("the GOOGLE_APPLICATION_CREDENTIALS environment variable.")
-    print(f"Details: {e}")
-    print("*****************************************************************")
-    translate_client = None
+# Initialize Flask app
+app = Flask(__name__)
+CORS(app)
 
 # --- API Endpoints ---
 
@@ -42,55 +51,57 @@ def transcribe_audio():
 
         try:
             result = model.transcribe(temp_audio_file.name, fp16=False)
-            transcribed_text = result['text']
-            print(f"Transcription: {transcribed_text}")
-            return jsonify({'text': transcribed_text})
+            print(f"Transcription: {result['text']}")
+            return jsonify(result)
         except Exception as e:
             print(f"Error during transcription: {e}")
             return jsonify({'error': 'Transcription failed'}), 500
 
 @app.route('/translate', methods=['POST'])
 def translate_text_route():
-    if not translate_client:
-        return jsonify({'error': 'Translate client not initialized. Check server logs.'}), 500
+    if not translator:
+        return jsonify({'error': 'DeepL translator not initialized.'}), 500
 
     data = request.get_json()
     text = data.get('text')
-    target_lang = data.get('targetLang')
+    target_lang = data.get('targetLang', 'ES') # Default to Spanish as per DeepL's format
 
-    if not text or not target_lang:
-        return jsonify({'error': 'Missing text or targetLang'}), 400
+    if not text:
+        return jsonify({'error': 'Missing text'}), 400
 
     try:
-        result = translate_client.translate(text, target_language=target_lang)
-        translated_text = result['translatedText']
-        print(f"Translation to {target_lang}: {translated_text}")
-        return jsonify({'translatedText': translated_text})
+        # Note: DeepL uses 'EN-US' for English, 'ES' for Spanish etc.
+        result = translator.translate_text(text, target_lang=target_lang)
+        print(f"Translation to {target_lang}: {result.text}")
+        return jsonify({'translatedText': result.text})
     except Exception as e:
         print(f"Error during translation: {e}")
         return jsonify({'error': 'Translation failed'}), 500
 
 @app.route('/synthesize', methods=['POST'])
 def synthesize_speech():
+    if not ELEVEN_API_KEY:
+        return jsonify({'error': 'ElevenLabs API key not set.'}), 500
+
     data = request.get_json()
     text = data.get('text')
-    language = data.get('language')
 
-    if not text or not language:
-        return jsonify({'error': 'Missing text or language'}), 400
+    if not text:
+        return jsonify({'error': 'Missing text'}), 400
 
-    try:
-        mp3_fp = io.BytesIO()
-        tts = gTTS(text=text, lang=language)
-        tts.write_to_fp(mp3_fp)
-        mp3_fp.seek(0)
-        
-        print(f"Speech synthesis for '{text}' successful.")
-        return send_file(mp3_fp, mimetype='audio/mpeg')
-    except Exception as e:
-        print(f"Error during speech synthesis: {e}")
-        return jsonify({'error': 'Speech synthesis failed'}), 500
+    def generate_audio_stream():
+        # This streams the audio directly from ElevenLabs to the client
+        audio_stream = generate(
+            text=text,
+            voice="Rachel", # A good default voice
+            model="eleven_multilingual_v2",
+            stream=True
+        )
+        yield from audio_stream
+
+    print(f"Starting speech synthesis stream for: '{text}'")
+    return Response(generate_audio_stream(), mimetype='audio/mpeg')
 
 if __name__ == '__main__':
-    print("Starting Flask server with full functionality...")
-    app.run(host='0.0.0.0', port=8000, debug=False) # Debug mode can cause issues with model loading
+    print("Starting Flask server with DeepL and ElevenLabs...")
+    app.run(host='0.0.0.0', port=8000, debug=False)

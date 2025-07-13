@@ -202,6 +202,7 @@
 
         #volumeSlider {
             -webkit-appearance: none;
+            appearance: none;
             width: 100%;
             height: 6px;
             background: var(--slider-track-bg);
@@ -212,7 +213,6 @@
 
         #volumeSlider::-webkit-slider-thumb {
             -webkit-appearance: none;
-            appearance: none;
             width: 18px;
             height: 18px;
             background: var(--slider-thumb-bg);
@@ -258,25 +258,31 @@
         <div class="section">
             <h2 class="section-title">Language</h2>
             <div class="language-options" id="languageSelect">
-                <input type="radio" id="lang-en" name="language" value="en" checked>
-                <label for="lang-en">English</label>
-                
-                <input type="radio" id="lang-es" name="language" value="es">
-                <label for="lang-es">Spanish</label>
-
-                <input type="radio" id="lang-fr" name="language" value="fr">
-                <label for="lang-fr">French</label>
-
-                <input type="radio" id="lang-ja" name="language" value="ja">
-                <label for="lang-ja">Japanese</label>
-
-                <input type="radio" id="lang-zh" name="language" value="zh">
-                <label for="lang-zh">Chinese</label>
+                <div class="language-option">
+                    <input type="radio" id="lang-es" name="language" value="ES" checked>
+                    <label for="lang-es">Spanish</label>
+                </div>
+                <div class="language-option">
+                    <input type="radio" id="lang-fr" name="language" value="FR">
+                    <label for="lang-fr">French</label>
+                </div>
+                <div class="language-option">
+                    <input type="radio" id="lang-de" name="language" value="DE">
+                    <label for="lang-de">German</label>
+                </div>
+                <div class="language-option">
+                    <input type="radio" id="lang-ja" name="language" value="JA">
+                    <label for="lang-ja">Japanese</label>
+                </div>
+                <div class="language-option">
+                    <input type="radio" id="lang-zh" name="language" value="ZH">
+                    <label for="lang-zh">Chinese</label>
+                </div>
             </div>
         </div>
 
         <div class="section">
-            <h2 class_name="section-title">Volume</h2>
+            <h2 class="section-title">Volume</h2>
             <div class="volume-control">
                 <input type="range" id="volumeSlider" min="0" max="100" value="100">
                 <span id="volumeValue">100%</span>
