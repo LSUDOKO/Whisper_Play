@@ -7,6 +7,9 @@
 Late-night streamers often mute their mics to avoid waking family, making chat the only way to follow the action. Non-English viewers, meanwhile, rely on slow, post-stream captions. We wanted to give every viewer **instant, private audio**—in **any language**—without forcing creators to change their setup.
 
 ---
+## Architecture
+<img width="2686" height="1535" alt="Untitled-2025-05-19-2135 (3)" src="https://github.com/user-attachments/assets/db3584fc-f8ca-4026-bc7b-d7d9ff960484" />
+
 
 ## What it does
 WhisperPlay is a **browser extension + local server** combo that:
