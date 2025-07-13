@@ -1,5 +1,5 @@
 // Import WebRTC adapter
-import adapter from 'webrtc-adapter';
+importScripts('webrtc-adapter.js');
 
 // State management
 let state = {

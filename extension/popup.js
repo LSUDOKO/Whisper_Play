@@ -5,43 +5,61 @@ document.addEventListener('DOMContentLoaded', () => {
     const languageSelect = document.getElementById('languageSelect');
     const volumeSlider = document.getElementById('volumeSlider');
     const volumeValue = document.getElementById('volumeValue');
+    const themeToggle = document.getElementById('theme-toggle');
 
-    // Get initial state
+    // --- Theme Management ---
+    const applyTheme = (isDarkMode) => {
+        themeToggle.checked = isDarkMode;
+        document.documentElement.classList.toggle('dark-mode', isDarkMode);
+    };
+
+    chrome.storage.sync.get('darkMode', ({ darkMode }) => {
+        applyTheme(darkMode);
+    });
+
+    themeToggle.addEventListener('change', () => {
+        const isDarkMode = themeToggle.checked;
+        chrome.storage.sync.set({ darkMode: isDarkMode });
+        applyTheme(isDarkMode);
+    });
+
+    // --- Get Initial State ---
     chrome.runtime.sendMessage({ type: 'getState' }, (response) => {
-        if (response.connected) {
-            updateConnectionStatus(true);
+        if (!response) return;
+
+        updateConnectionStatus(response.connected);
+
+        const lang = response.language || 'en';
+        const langRadioButton = document.querySelector(`.language-options input[value="${lang}"]`);
+        if (langRadioButton) {
+            langRadioButton.checked = true;
         }
-        languageSelect.value = response.language || 'en';
+
         volumeSlider.value = response.volume || 100;
         volumeValue.textContent = `${volumeSlider.value}%`;
     });
 
-    // Connect/Disconnect button
+    // --- Event Listeners ---
     connectButton.addEventListener('click', () => {
-        if (connectButton.textContent === 'Connect') {
-            chrome.runtime.sendMessage({ type: 'connect' }, (response) => {
-                if (response.success) {
-                    updateConnectionStatus(true);
-                }
-            });
-        } else {
-            chrome.runtime.sendMessage({ type: 'disconnect' }, (response) => {
-                if (response.success) {
-                    updateConnectionStatus(false);
-                }
+        const isConnecting = connectButton.textContent === 'Connect';
+        const messageType = isConnecting ? 'connect' : 'disconnect';
+
+        chrome.runtime.sendMessage({ type: messageType }, (response) => {
+            if (response && response.success) {
+                updateConnectionStatus(isConnecting);
+            }
+        });
+    });
+
+    languageSelect.addEventListener('change', (event) => {
+        if (event.target.name === 'language') {
+            chrome.runtime.sendMessage({
+                type: 'setLanguage',
+                language: event.target.value
             });
         }
     });
 
-    // Language selection
-    languageSelect.addEventListener('change', () => {
-        chrome.runtime.sendMessage({
-            type: 'setLanguage',
-            language: languageSelect.value
-        });
-    });
-
-    // Volume control
     volumeSlider.addEventListener('input', () => {
         volumeValue.textContent = `${volumeSlider.value}%`;
         chrome.runtime.sendMessage({
@@ -50,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // --- Helper Functions ---
     function updateConnectionStatus(connected) {
         statusIndicator.classList.toggle('connected', connected);
         statusText.textContent = connected ? 'Connected' : 'Disconnected';

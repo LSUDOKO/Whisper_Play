@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhisperPlay</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <img src="../assets/logo.png" alt="WhisperPlay Logo">
+                <h1>WhisperPlay</h1>
+            </div>
+            <button id="settingsBtn" class="icon-button">
+                <span class="material-icons">settings</span>
+            </button>
+        </header>
+
+        <main class="main-content">
+            <div class="status-card">
+                <div class="status-header">
+                    <span class="material-icons" id="statusIcon">radio_button_checked</span>
+                    <span id="statusText">Disconnected</span>
+                </div>
+                <div class="stream-info" id="streamInfo">
+                    <p>Waiting for OBS connection...</p>
+                </div>
+            </div>
+
+            <div class="translation-settings">
+                <div class="language-selector">
+                    <label>Target Language</label>
+                    <select id="targetLanguage">
+                        <option value="en">English</option>
+                        <option value="es">Spanish</option>
+                        <option value="fr">French</option>
+                        <option value="de">German</option>
+                        <option value="ja">Japanese</option>
+                        <option value="ko">Korean</option>
+                        <option value="zh">Chinese</option>
+                    </select>
+                </div>
+
+                <div class="quality-selector">
+                    <label>Translation Quality</label>
+                    <div class="quality-options">
+                        <button class="quality-btn active" data-quality="fast">Fast</button>
+                        <button class="quality-btn" data-quality="balanced">Balanced</button>
+                        <button class="quality-btn" data-quality="accurate">Accurate</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button id="startBtn" class="primary-button">
+                    <span class="material-icons">play_arrow</span>
+                    Start Translation
+                </button>
+                <button id="pauseBtn" class="secondary-button" disabled>
+                    <span class="material-icons">pause</span>
+                    Pause
+                </button>
+            </div>
+
+            <div class="stats-panel">
+                <div class="stat-item">
+                    <span class="material-icons">timer</span>
+                    <div class="stat-info">
+                        <span class="stat-label">Latency</span>
+                        <span class="stat-value" id="latencyValue">0ms</span>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <span class="material-icons">memory</span>
+                    <div class="stat-info">
+                        <span class="stat-label">CPU Usage</span>
+                        <span class="stat-value" id="cpuValue">0%</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>

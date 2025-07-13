@@ -15,6 +15,16 @@ static void whisperplay_audio_capture_destroy(void *data)
     }
 }
 
+static void whisperplay_audio_capture_update(void *data, obs_data_t *settings)
+{
+    struct whisperplay_audio_source *context = static_cast<whisperplay_audio_source *>(data);
+    const char *server_url = obs_data_get_string(settings, "server_url");
+    
+    if (server_url && server_url[0] != '\0') {
+        initialize_webrtc_sender(server_url);
+    }
+}
+
 static void *whisperplay_audio_capture_create(obs_data_t *settings, obs_source_t *source)
 {
     struct whisperplay_audio_source *context = static_cast<whisperplay_audio_source *>(
@@ -24,6 +34,7 @@ static void *whisperplay_audio_capture_create(obs_data_t *settings, obs_source_t
     context->channels = audio_output_get_channels(obs_get_audio());
     context->sample_rate = audio_output_get_sample_rate(obs_get_audio());
     
+    whisperplay_audio_capture_update(context, settings);
     return context;
 }
 

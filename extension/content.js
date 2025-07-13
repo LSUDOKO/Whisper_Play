@@ -100,41 +100,41 @@ async function translateText(text, targetLang) {
     }
 }
 
-// Speech synthesis using browser's built-in TTS
+// Speech synthesis using a server-side endpoint
 async function synthesizeSpeech(text, language) {
-    return new Promise((resolve, reject) => {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = language;
-        utterance.rate = 1.1; // Slightly faster to reduce latency
-        
-        // Convert speech to AudioBuffer
-        const mediaStream = utterance.audioStream;
-        const mediaRecorder = new MediaRecorder(mediaStream);
-        const audioChunks = [];
+    try {
+        const response = await fetch('http://localhost:8000/synthesize', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                text,
+                language
+            })
+        });
 
-        mediaRecorder.ondataavailable = (event) => {
-            audioChunks.push(event.data);
-        };
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-        mediaRecorder.onstop = async () => {
-            const audioBlob = new Blob(audioChunks);
-            const arrayBuffer = await audioBlob.arrayBuffer();
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-            resolve(audioBuffer);
-        };
-
-        mediaRecorder.onerror = reject;
-        mediaRecorder.start();
-        speechSynthesis.speak(utterance);
-    });
+        const audioBlob = await response.blob();
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        return audioBuffer;
+    } catch (error) {
+        console.error('Speech synthesis error:', error);
+        // Return a silent AudioBuffer on error to prevent breaking the chain
+        return audioContext.createBuffer(1, 1, audioContext.sampleRate);
+    }
 }
 
 // Utility function to convert AudioBuffer to WAV format
 function audioBufferToWav(buffer) {
     const numOfChan = buffer.numberOfChannels;
     const length = buffer.length * numOfChan * 2;
-    const buffer = new ArrayBuffer(44 + length);
-    const view = new DataView(buffer);
+    const newBuffer = new ArrayBuffer(44 + length);
+    const view = new DataView(newBuffer);
     const channels = [];
     let offset = 0;
     let pos = 0;
@@ -169,7 +169,7 @@ function audioBufferToWav(buffer) {
         offset++;
     }
 
-    return buffer;
+    return newBuffer;
 }
 
 function writeString(view, offset, string) {
@@ -178,11 +178,14 @@ function writeString(view, offset, string) {
     }
 }
 
-// Decrypt audio data
+// Placeholder for audio data decryption
+// This function should be replaced with the actual decryption logic.
+// It currently returns the data unmodified.
 async function decryptAudioData(encryptedData) {
-    // TODO: Implement decryption
-    // This is a placeholder
-    return new ArrayBuffer(0);
+    // TODO: Implement the actual decryption logic here.
+    // For now, we'll just return the data as is.
+    console.warn('Audio decryption is not implemented. Returning raw data.');
+    return encryptedData;
 }
 
 // Listen for messages from background script
